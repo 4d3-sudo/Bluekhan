@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rompecabezas de Bluekhan</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+            position: relative;
+        }
+
+        /* Pantalla de introducción */
+        #intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+            pointer-events: none; /* para que no bloquee clics mientras se muestra */
+        }
+
+        #intro-canvas {
+            display: block;
+            width: 300px;
+            height: 200px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .intro-text {
+            font-family: 'Segoe UI', sans-serif;
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: #333;
+            letter-spacing: 1px;
+        }
+
+        /* El resto de estilos del rompecabezas se mantienen igual */
+        .puzzle-app {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 24px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            color: #1e293b;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .controles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .btn {
+            background: #e2e8f0;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .btn:hover {
+            background: #cbd5e1;
+            transform: translateY(-2px);
+        }
+
+        .btn.activo {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 10px rgba(59,130,246,0.3);
+        }
+
+        .imagenes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .imagen-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .imagen-btn img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .imagen-btn.seleccionada {
+            border-color: #3b82f6;
+            transform: scale(1.05);
+        }
+
+        .puzzle-wrapper {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.03);
+        }
+
+        .puzzle-grid {
+            display: grid;
+            gap: 2px;
+            background: #cbd5e1;
+            border: 2px solid #94a3b8;
+            border-radius: 12px;
+            overflow: hidden;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .puzzle-grid canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #e2e8f0;
+            cursor: pointer;
+            transition: opacity 0.1s;
+            border: none;
+            outline: 1px solid #ffffff50;
+        }
+
+        .puzzle-grid canvas.seleccionado {
+            outline: 4px solid #f97316;
+            z-index: 2;
+            position: relative;
+        }
+
+        .mensaje {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #16a34a;
+            min-height: 2rem;
+        }
+
+        .shuffle-btn {
+            background: #f97316;
+            color: white;
+            padding: 12px 28px;
+            font-size: 1.1rem;
+            margin-top: 16px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 6px 12px rgba(249,115,22,0.3);
+            display: inline-block;
+        }
+
+        .shuffle-btn:hover {
+            background: #ea580c;
+            transform: scale(1.02);
+        }
+
+        .footer {
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .puzzle-app { padding: 16px; }
+            h1 { font-size: 1.5rem; }
+            .btn { padding: 8px 14px; font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- INTRO: Gato corriendo en blanco y negro -->
+    <div id="intro-overlay">
+        <canvas id="intro-canvas" width="300" height="200"></canvas>
+        <div class="intro-text">Cargando...</div>
+    </div>
+
+    <!-- Juego de rompecabezas (visible después de la intro) -->
+    <div class="puzzle-app">
+        <h1>🧩 Rompecabezas · 25, 15 y 10 piezas</h1>
+
+        <!-- Selección de imágenes -->
+        <div class="imagenes" id="selector-imagenes">
+            <div class="imagen-btn" data-img="0">
+                <img src="https://i.postimg.cc/pLpZ9BV7/IMG-20250924-WA0179.jpg" alt="Imagen 1">
+            </div>
+            <div class="imagen-btn" data-img="1">
+                <img src="https://i.postimg.cc/zvZM7cvH/IMG_20250708_WA0236.jpg" alt="Imagen 2">
+            </div>
+            <div class="imagen-btn" data-img="2">
+                <img src="https://i.postimg.cc/tgztwvBY/IMG-20250725-WA0481.jpg" alt="Imagen 3">
+            </div>
+        </div>
+
+        <!-- Controles de cantidad de piezas -->
+        <div class="controles" id="selector-piezas">
+            <button class="btn" data-piezas="25">25 piezas (5x5)</button>
+            <button class="btn activo" data-piezas="15">15 piezas (3x5)</button>
+            <button class="btn" data-piezas="10">10 piezas (2x5)</button>
+        </div>
+
+        <!-- Contenedor del rompecabezas -->
+        <div class="puzzle-wrapper">
+            <div class="puzzle-grid" id="puzzle-grid"></div>
+        </div>
+
+        <!-- Mensaje de victoria y botón de mezclar -->
+        <div class="mensaje" id="mensaje"></div>
+        <div class="footer">
+            <button class="shuffle-btn" id="shuffleBtn">🔄 Mezclar piezas</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ------------------------------------------------------------
+            // CONFIGURACIÓN DE IMÁGENES (tus 3 URLs correctas)
+            // ------------------------------------------------------------
+            const MIS_IMAGENES = [
+                'https://i.postimg.cc/pLpZ9BV7/IMG-20250924-WA0179.jpg',   // imagen 1
+                'https://i.postimg.cc/zvZM7cvH/IMG_20250708_WA0236.jpg',   // imagen 2
+                'https://i.postimg.cc/tgztwvBY/IMG-20250725-WA0481.jpg'    // imagen 3
+            ];
+
+            // Estado global del rompecabezas
+            let imagenActual = new Image();
+            let imagenCargada = false;
+            let imageWidth = 0, imageHeight = 0;
+            let rows = 3, cols = 5;        // por defecto 15 piezas (3x5)
+            let piezas = [];
+            let selectedIndex = null;
+            let imagenIndex = 0;
+
+            // Elementos DOM del juego
+            const gridEl = document.getElementById('puzzle-grid');
+            const mensajeEl = document.getElementById('mensaje');
+            const shuffleBtn = document.getElementById('shuffleBtn');
+            const piezasBtns = document.querySelectorAll('[data-piezas]');
+            const imagenBtns = document.querySelectorAll('.imagen-btn');
+
+            // ------------------------------------------------------------
+            // INTRO: Gato animado
+            // ------------------------------------------------------------
+            const introOverlay = document.getElementById('intro-overlay');
+            const introCanvas = document.getElementById('intro-canvas');
+            let introAnimFrame;
+            let introStartTime;
+            const introMinTime = 2000; // mínimo 2 segundos de intro
+            let introVisible = true;
+
+            // Inicia la animación del gato
+            function iniciarIntro() {
+                introStartTime = Date.now();
+                animarIntro();
+            }
+
+            // Bucle de animación
+            function animarIntro() {
+                if (!introVisible) return;
+                const ctx = introCanvas.getContext('2d');
+                const tiempo = Date.now();
+                // paso varía entre 0 y 1 con el tiempo para dar sensación de movimiento
+                const paso = (Math.sin(tiempo / 150) + 1) / 2; // onda entre 0 y 1
+                dibujarGato(ctx, paso);
+                introAnimFrame = requestAnimationFrame(animarIntro);
+            }
+
+            // Dibuja un gato blanco y negro (formas simples) en el canvas
+            function dibujarGato(ctx, paso) {
+                const w = introCanvas.width;
+                const h = introCanvas.height;
+                ctx.clearRect(0, 0, w, h);
+
+                // Color base (gris oscuro)
+                ctx.fillStyle = '#333';
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 2;
+
+                // Cabeza
+                ctx.beginPath();
+                ctx.arc(150, 80, 40, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Orejas
+                ctx.fillStyle = '#333';
+                ctx.beginPath();
+                ctx.moveTo(115, 45);
+                ctx.lineTo(100, 20);
+                ctx.lineTo(130, 40);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(185, 45);
+                ctx.lineTo(200, 20);
+                ctx.lineTo(170, 40);
+                ctx.fill();
+
+                // Ojos (blancos)
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(135, 70, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(165, 70, 8, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Pupilas (se mueven ligeramente con el paso)
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.arc(135 + paso * 2, 70, 4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(165 + paso * 2, 70, 4, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Nariz
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.moveTo(150, 85);
+                ctx.lineTo(145, 95);
+                ctx.lineTo(155, 95);
+                ctx.fill();
+
+                // Bigotes
+                ctx.beginPath();
+                ctx.moveTo(120, 85);
+                ctx.lineTo(90, 80);
+                ctx.moveTo(120, 90);
+                ctx.lineTo(90, 90);
+                ctx.moveTo(120, 95);
+                ctx.lineTo(90, 100);
+                ctx.moveTo(180, 85);
+                ctx.lineTo(210, 80);
+                ctx.moveTo(180, 90);
+                ctx.lineTo(210, 90);
+                ctx.moveTo(180, 95);
+                ctx.lineTo(210, 100);
+                ctx.strokeStyle = '#000';
+                ctx.stroke();
+
+                // Cuerpo
+                ctx.fillStyle = '#333';
+                ctx.fillRect(130, 120, 40, 30);
+
+                // Patas traseras (fijas)
+                ctx.fillRect(110, 140, 15, 30);
+                ctx.fillRect(175, 140, 15, 30);
+
+                // Patas delanteras (animadas: se mueven hacia adelante/atrás)
+                const offset = Math.sin(paso * 10) * 6; // movimiento de "carrera"
+                ctx.fillRect(130 + offset, 110, 10, 20);
+                ctx.fillRect(160 - offset, 110, 10, 20);
+            }
+
+            // Oculta la intro (con transición) y detiene la animación
+            function ocultarIntro() {
+                if (!introVisible) return;
+                const tiempoTranscurrido = Date.now() - introStartTime;
+                if (tiempoTranscurrido < introMinTime) {
+                    // Si no ha pasado el tiempo mínimo, esperar
+                    setTimeout(ocultarIntro, introMinTime - tiempoTranscurrido);
+                    return;
+                }
+                introVisible = false;
+                cancelAnimationFrame(introAnimFrame);
+                introOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    introOverlay.style.display = 'none';
+                }, 500);
+            }
+
+            // ------------------------------------------------------------
+            // Lógica del rompecabezas (sin cambios, salvo llamar a ocultarIntro)
+            // ------------------------------------------------------------
+            function shuffleArray(arr) {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            function crearPiezasOrdenadas() {
+                const nuevas = [];
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        nuevas.push({ originalRow: r, originalCol: c });
+                    }
+                }
+                return nuevas;
+            }
+
+            function mezclarPiezas() {
+                piezas = shuffleArray([...piezas]);
+                selectedIndex = null;
+                render();
+            }
+
+            function render() {
+                if (!imagenCargada) return;
+                gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                gridEl.innerHTML = '';
+                piezas.forEach((_, idx) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.dataset.index = idx;
+                    canvas.addEventListener('click', onCanvasClick);
+                    gridEl.appendChild(canvas);
+                });
+                redimensionarYDibujar();
+                comprobarVictoria();
+            }
+
+            function redimensionarYDibujar() {
+                if (!imagenCargada) return;
+                const canvases = gridEl.querySelectorAll('canvas');
+                if (canvases.length === 0) return;
+
+                const gridRect = gridEl.getBoundingClientRect();
+                const cellWidth = gridRect.width / cols;
+                const tileAspect = (imageWidth / imageHeight) * (rows / cols);
+                const cellHeight = cellWidth / tileAspect;
+
+                canvases.forEach((canvas, idx) => {
+                    const pieza = piezas[idx];
+                    canvas.width = Math.round(cellWidth);
+                    canvas.height = Math.round(cellHeight);
+                    canvas.style.width = '100%';
+                    canvas.style.height = 'auto';
+
+                    const ctx = canvas.getContext('2d');
+                    const tileWidth = imageWidth / cols;
+                    const tileHeight = imageHeight / rows;
+                    const sx = pieza.originalCol * tileWidth;
+                    const sy = pieza.originalRow * tileHeight;
+                    ctx.drawImage(imagenActual, sx, sy, tileWidth, tileHeight, 0, 0, canvas.width, canvas.height);
+                });
+
+                if (selectedIndex !== null) {
+                    const prevSelected = document.querySelector(`canvas[data-index="${selectedIndex}"]`);
+                    if (prevSelected) prevSelected.classList.add('seleccionado');
+                }
+            }
+
+            function onCanvasClick(e) {
+                const canvas = e.currentTarget;
+                const index = parseInt(canvas.dataset.index, 10);
+
+                if (selectedIndex === null) {
+                    document.querySelectorAll('.puzzle-grid canvas').forEach(c => c.classList.remove('seleccionado'));
+                    canvas.classList.add('seleccionado');
+                    selectedIndex = index;
+                    return;
+                }
+
+                if (selectedIndex === index) {
+                    canvas.classList.remove('seleccionado');
+                    selectedIndex = null;
+                    return;
+                }
+
+                [piezas[selectedIndex], piezas[index]] = [piezas[index], piezas[selectedIndex]];
+                document.querySelectorAll('.puzzle-grid canvas').forEach(c => c.classList.remove('seleccionado'));
+                selectedIndex = null;
+                redimensionarYDibujar();
+                comprobarVictoria();
+            }
+
+            function comprobarVictoria() {
+                let resuelto = true;
+                for (let i = 0; i < piezas.length; i++) {
+                    const r = Math.floor(i / cols);
+                    const c = i % cols;
+                    if (piezas[i].originalRow !== r || piezas[i].originalCol !== c) {
+                        resuelto = false;
+                        break;
+                    }
+                }
+                mensajeEl.textContent = resuelto ? '🎉 ¡Felicidades! Completaste el rompecabezas.' : '';
+            }
+
+            function cargarImagen(url) {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function() {
+                    imagenActual = img;
+                    imagenCargada = true;
+                    imageWidth = img.width;
+                    imageHeight = img.height;
+                    piezas = crearPiezasOrdenadas();
+                    mezclarPiezas(); // esto llama a render
+                    // Cuando la imagen se carga, intentamos ocultar la intro
+                    ocultarIntro();
+                };
+                img.onerror = function() {
+                    alert('Error al cargar la imagen. Verifica la URL.');
+                };
+                img.src = url;
+            }
+
+            function setPiezas(cantidad) {
+                if (cantidad === 25) { rows = 5; cols = 5; }
+                else if (cantidad === 15) { rows = 3; cols = 5; }
+                else if (cantidad === 10) { rows = 2; cols = 5; }
+                else return;
+
+                if (imagenCargada) {
+                    piezas = crearPiezasOrdenadas();
+                    mezclarPiezas();
+                }
+            }
+
+            // Eventos de botones
+            piezasBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    piezasBtns.forEach(b => b.classList.remove('activo'));
+                    btn.classList.add('activo');
+                    setPiezas(parseInt(btn.dataset.piezas, 10));
+                });
+            });
+
+            imagenBtns.forEach((btn, idx) => {
+                btn.addEventListener('click', () => {
+                    imagenBtns.forEach(b => b.classList.remove('seleccionada'));
+                    btn.classList.add('seleccionada');
+                    imagenIndex = idx;
+                    cargarImagen(MIS_IMAGENES[imagenIndex]);
+                });
+            });
+
+            shuffleBtn.addEventListener('click', () => {
+                if (imagenCargada) mezclarPiezas();
+            });
+
+            window.addEventListener('resize', () => {
+                if (imagenCargada) redimensionarYDibujar();
+            });
+
+            // ------------------------------------------------------------
+            // INICIALIZACIÓN: Primero la intro, luego la primera imagen
+            // ------------------------------------------------------------
+            iniciarIntro();                         // arranca el gato
+            cargarImagen(MIS_IMAGENES[0]);          // carga la primera imagen (la intro se ocultará cuando termine)
+            imagenBtns[0].classList.add('seleccionada');
+        })();
+    </script>
+</body>
+</html>
